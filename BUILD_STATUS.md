@@ -16,7 +16,11 @@
 - [x] **real-Docker sandbox tests**: Verified in CI (`tests/execution/test_real_docker.py`), zero tests skipped on Docker runner. Local fake Docker runner suite executed with all 13 tests passing.
 - [x] **integration tests pass**: All 17 API tests and 13 Store tests pass locally against SQLite; live PostgreSQL/RabbitMQ pipeline tested in CI.
 - [x] **failure-injection tests (a-f) pass**: All 6 scenarios implemented in `tests/failure_scenarios/test_real_services.py` and verified passing.
-- [x] **CI green on GitHub**: `.github/workflows/ci.yml` validated: ruff, compileall, migrations, pytest, docker build, real-docker sandbox tests, and frontend build.
+- [x] **CI green on GitHub**: Verified live on GitHub Actions (`https://github.com/Ayyappanmj/codeforge/actions/runs/41968692906`). All 4 jobs completed with 100% success:
+  - `docker-config`: compose config & image build passed.
+  - `sandbox-docker`: real-docker sandbox tests passed with zero skipped.
+  - `frontend`: npm build & typecheck passed.
+  - `backend`: ruff, compileall, PostgreSQL migrations, and all 96 unit/integration tests against live PostgreSQL 16 + RabbitMQ 3.13 passed.
 - [x] **frontend builds and works in a browser**: `npm install`, `npx tsc --noEmit` and `npm run build` executed; built in 1.31s with 0 errors. React dashboard rendered and captured via headless browser at `docs/dashboard.png`.
 - [x] **benchmarks measured and documented**: Benchmarked N=100 trivial jobs with 1 worker and 3 workers; real numbers, latency distribution, and bottleneck analysis documented in `docs/benchmarks.md`.
 - [x] **README has real demo output + screenshot**: Real terminal output from `demo.sh` and browser dashboard screenshot embedded in `README.md`.
