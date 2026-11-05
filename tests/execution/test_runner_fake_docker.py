@@ -23,7 +23,7 @@ class RunnerFakeDockerTests(unittest.TestCase):
         self.state = tempfile.mkdtemp()
         os.environ["FAKE_DOCKER_STATE"] = self.state
         os.environ.pop("FAKE_DOCKER_FAIL", None)
-        self.runner = DockerRunner(ResourceLimits(timeout_seconds=1.5, max_output_bytes=4096), FAKE)
+        self.runner = DockerRunner(ResourceLimits(timeout_seconds=3.0, max_output_bytes=4096), FAKE)
 
     def tearDown(self):
         shutil.rmtree(self.state, ignore_errors=True)

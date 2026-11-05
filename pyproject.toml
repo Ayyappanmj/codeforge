@@ -1,6 +1,11 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["packages/shared", "apps/api", "apps/worker", "."]
+filterwarnings = [
+    "ignore::Warning:starlette.testclient",
+    "ignore::Warning:fastapi.testclient",
+    "ignore:.*Using `httpx` with `starlette.testclient`.*",
+]
 
 [tool.ruff]
 line-length = 110
