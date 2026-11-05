@@ -1,0 +1,71 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: codeforge, POSTGRES_PASSWORD: codeforge, POSTGRES_DB: codeforge }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U codeforge" --health-interval 5s --health-timeout 3s --health-retries 20
+      rabbitmq:
+        image: rabbitmq:3.13-alpine
+        env: { RABBITMQ_DEFAULT_USER: codeforge, RABBITMQ_DEFAULT_PASS: codeforge }
+        ports: ["5672:5672"]
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping" --health-interval 10s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql+psycopg2://codeforge:codeforge@localhost:5432/codeforge
+      RABBITMQ_URL: amqp://codeforge:codeforge@localhost:5672/%2F
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -r requirements-dev.txt
+      - name: Ruff
+        run: ruff check .
+      - name: Compile check (backend build)
+        run: python -m compileall -q packages apps migrations
+      - name: Migrations apply cleanly on PostgreSQL
+        run: alembic upgrade head && alembic downgrade base && alembic upgrade head
+      - name: Unit, API, failure-scenario and integration tests (real PostgreSQL + RabbitMQ)
+        run: python -m pytest tests -v -rs --ignore=tests/execution/test_real_docker.py
+
+  sandbox-docker:
+    # GitHub-hosted Ubuntu runners include Docker. These tests exercise the REAL sandbox flags.
+    # They are a smoke test, not a security audit - see docs/security.md.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements-dev.txt
+      - run: docker build -t codeforge-python-runner:latest execution_images/python
+      - run: docker build -t codeforge-javascript-runner:latest execution_images/javascript
+      - name: Real-Docker sandbox tests (must not be skipped)
+        run: |
+          python -m pytest tests/execution/test_real_docker.py -v -rs | tee out.txt
+          ! grep -q "SKIPPED" out.txt
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: apps/frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install
+      - run: npm run build
+
+  docker-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: docker compose config -q
+      - run: docker compose build api worker frontend

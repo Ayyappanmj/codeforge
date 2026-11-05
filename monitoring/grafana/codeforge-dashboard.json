@@ -1,0 +1,74 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "Submissions Total",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "expr": "sum(codeforge_submissions_total)", "legendFormat": "Total Submissions" }]
+    },
+    {
+      "title": "Executions by Status",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "expr": "sum by (status) (codeforge_executions_total)", "legendFormat": "{{status}}" }]
+    },
+    {
+      "title": "Active Worker Executions",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "expr": "sum(codeforge_worker_active_executions)", "legendFormat": "Active" }]
+    },
+    {
+      "title": "Queue Failures & Sweeper Recoveries",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        { "expr": "sum(codeforge_queue_failures_total)", "legendFormat": "Failures" },
+        { "expr": "sum(codeforge_recoveries_total)", "legendFormat": "Recoveries" }
+      ]
+    },
+    {
+      "title": "Submission Rate (jobs/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [{ "expr": "sum by (language) (rate(codeforge_submissions_total[1m]))", "legendFormat": "{{language}}" }]
+    },
+    {
+      "title": "Execution Latency (p50 / p95 Duration)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le) (rate(codeforge_execution_duration_seconds_bucket[1m])))", "legendFormat": "p50 (s)" },
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(codeforge_execution_duration_seconds_bucket[1m])))", "legendFormat": "p95 (s)" }
+      ]
+    },
+    {
+      "title": "Outbox Publish & Retry Results",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "targets": [{ "expr": "sum by (result) (rate(codeforge_outbox_publish_total[1m]))", "legendFormat": "{{result}}" }]
+    },
+    {
+      "title": "Worker Message Decisions",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "targets": [{ "expr": "sum by (outcome) (rate(codeforge_worker_messages_total[1m]))", "legendFormat": "{{outcome}}" }]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["codeforge", "sandbox"],
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "CodeForge Operations Dashboard",
+  "version": 1
+}

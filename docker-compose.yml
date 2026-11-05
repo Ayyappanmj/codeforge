@@ -1,0 +1,125 @@
+name: codeforge
+
+x-db-env: &db-env
+  DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-codeforge}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-codeforge}
+  RABBITMQ_URL: amqp://${RABBITMQ_USER:-codeforge}:${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD in .env}@rabbitmq:5672/%2F
+
+x-limits-env: &limits-env
+  EXEC_TIMEOUT_SECONDS: ${EXEC_TIMEOUT_SECONDS:-5}
+  EXEC_MEMORY_MB: ${EXEC_MEMORY_MB:-128}
+  EXEC_CPUS: ${EXEC_CPUS:-1}
+  EXEC_PIDS_LIMIT: ${EXEC_PIDS_LIMIT:-32}
+  MAX_SOURCE_BYTES: ${MAX_SOURCE_BYTES:-65536}
+  MAX_STDIN_BYTES: ${MAX_STDIN_BYTES:-16384}
+  MAX_OUTPUT_BYTES: ${MAX_OUTPUT_BYTES:-65536}
+  MAX_ATTEMPTS: ${MAX_ATTEMPTS:-3}
+  MAX_MESSAGE_RETRIES: ${MAX_MESSAGE_RETRIES:-3}
+  RETRY_DELAY_MS: ${RETRY_DELAY_MS:-5000}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-codeforge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-codeforge}
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3.13-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-codeforge}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD in .env}
+    ports: ["127.0.0.1:5672:5672"]
+    volumes: [rabbitdata:/var/lib/rabbitmq]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    command: ["alembic", "upgrade", "head"]
+    environment: { <<: *db-env }
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    environment: { <<: [*db-env, *limits-env] }
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      rabbitmq: { condition: service_healthy }
+    # NOTE: no docker socket here - the API can never start containers.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/api/v1/health/live')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  publisher:
+    build: { context: ., dockerfile: apps/worker/Dockerfile }
+    command: ["python", "-m", "codeforge_worker.publisher"]
+    environment: { <<: [*db-env, *limits-env] }
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      rabbitmq: { condition: service_healthy }
+    restart: unless-stopped
+
+  worker:
+    build: { context: ., dockerfile: apps/worker/Dockerfile }
+    environment: { <<: [*db-env, *limits-env] }
+    group_add: ["${DOCKER_GID:-999}"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # ONLY the worker gets the Docker daemon
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      rabbitmq: { condition: service_healthy }
+    stop_grace_period: 30s
+    restart: unless-stopped
+    # scale with:  docker compose up -d --scale worker=3
+
+  frontend:
+    build: { context: apps/frontend }
+    ports: ["127.0.0.1:8080:80"]
+    depends_on: [api]
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes: ["./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    ports: ["127.0.0.1:9090:9090"]
+    depends_on: [api]
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    ports: ["127.0.0.1:3000:3000"]
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana:/var/lib/grafana/dashboards
+    depends_on: [prometheus]
+
+  # Build the trusted execution images: docker compose --profile images build
+  python-runner:
+    profiles: ["images"]
+    image: codeforge-python-runner:latest
+    build: { context: execution_images/python }
+  javascript-runner:
+    profiles: ["images"]
+    image: codeforge-javascript-runner:latest
+    build: { context: execution_images/javascript }
+
+volumes:
+  pgdata:
+  rabbitdata:

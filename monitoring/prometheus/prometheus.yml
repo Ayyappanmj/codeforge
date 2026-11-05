@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: codeforge-api
+    metrics_path: /metrics
+    static_configs: [{ targets: ["api:8000"] }]
+  # Worker/publisher expose metrics on :9100/:9101 inside the compose network. With
+  # `--scale worker=N` Docker DNS returns every replica; use dns_sd_configs for all of them.
+  - job_name: codeforge-worker
+    dns_sd_configs: [{ names: ["worker"], type: A, port: 9100 }]
+  - job_name: codeforge-publisher
+    static_configs: [{ targets: ["publisher:9101"] }]
