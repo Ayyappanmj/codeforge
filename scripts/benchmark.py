@@ -36,11 +36,10 @@ def run_standalone_benchmark(n_jobs: int = 100, workers: int = 1) -> dict:
     from codeforge_shared.models import Base
     from codeforge_shared.results import RunResult
     from codeforge_shared.states import ExecutionStatus as S
-    from codeforge_shared.store import SqlStore, make_session_factory
+    from codeforge_shared.store import SqlStore
     from codeforge_worker.processor import Processor
     from tests.support.fakes import FakeRunner
 
-    from sqlalchemy.pool import StaticPool
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 

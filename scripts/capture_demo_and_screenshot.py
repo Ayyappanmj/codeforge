@@ -116,7 +116,7 @@ def main():
             "--window-size=1280,800",
             "http://localhost:5173",
         ]
-        res = subprocess.run(cmd, capture_output=True, timeout=25)
+        subprocess.run(cmd, capture_output=True, timeout=25)
         print(f"Screenshot taken: {screenshot_path} (exists={os.path.exists(screenshot_path)}, size={os.path.getsize(screenshot_path) if os.path.exists(screenshot_path) else 0} bytes)")
     finally:
         p_vite.terminate()

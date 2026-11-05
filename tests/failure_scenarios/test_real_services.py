@@ -9,7 +9,7 @@ import unittest
 
 from codeforge_shared.config import Settings
 from codeforge_shared.models import Base, utcnow
-from codeforge_shared.results import CancelOutcome, RunInput, RunResult
+from codeforge_shared.results import CancelOutcome, RunResult
 from codeforge_shared.states import ErrorType, ExecutionStatus as S
 from codeforge_shared.store import SqlStore, make_session_factory
 from codeforge_worker.processor import Decision, Processor
